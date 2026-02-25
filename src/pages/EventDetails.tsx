@@ -221,6 +221,20 @@ const EventDetails = () => {
                   <span className="text-sm text-muted-foreground">Status:</span>
                   <Badge className={getStatusColor(rsvp.status)}>{rsvp.status}</Badge>
                 </div>
+                {/* Show QR code for confirmed restricted event RSVPs */}
+                {rsvp.status === "confirmed" && rsvp.qr_token && event.event_type === "restricted" && (
+                  <div className="bg-card border border-border rounded-xl p-4 text-center space-y-3">
+                    <p className="text-sm font-medium text-foreground">Your Entry QR Code</p>
+                    <img
+                      src={`https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(rsvp.qr_token)}`}
+                      alt="Your QR code for event entry"
+                      className="mx-auto rounded-lg"
+                      width={200}
+                      height={200}
+                    />
+                    <p className="text-xs text-muted-foreground">Show this to the host at check-in</p>
+                  </div>
+                )}
                 {rsvp.status !== "denied" && (
                   <Button variant="outline" onClick={handleCancelRsvp} className="w-full">
                     Cancel RSVP
