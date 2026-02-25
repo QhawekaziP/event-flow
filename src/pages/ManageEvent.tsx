@@ -6,8 +6,10 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, X, QrCode, UserCheck } from "lucide-react";
+import { ArrowLeft, Check, QrCode, UserCheck } from "lucide-react";
 import QrScanner from "@/components/QrScanner";
+import RsvpCard from "@/components/ManageEvent/RsvpCard";
+import HostManager from "@/components/ManageEvent/HostManager";
 
 const ManageEvent = () => {
   const { id } = useParams();
@@ -18,8 +20,10 @@ const ManageEvent = () => {
   const [profiles, setProfiles] = useState({});
   const [answers, setAnswers] = useState({});
   const [questions, setQuestions] = useState([]);
+  const [hosts, setHosts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
+  const [isHostOrOwner, setIsHostOrOwner] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -32,13 +36,30 @@ const ManageEvent = () => {
       .from("events")
       .select("*")
       .eq("id", id)
-      .eq("user_id", user.id)
       .single();
 
     if (!eventData) {
       navigate("/my-events");
       return;
     }
+
+    const isOwner = eventData.user_id === user.id;
+
+    // Check if user is a host
+    const { data: hostData } = await supabase
+      .from("event_hosts")
+      .select("*")
+      .eq("event_id", id);
+    setHosts(hostData || []);
+
+    const isHost = (hostData || []).some((h) => h.user_id === user.id);
+
+    if (!isOwner && !isHost) {
+      navigate("/my-events");
+      return;
+    }
+
+    setIsHostOrOwner(true);
     setEvent(eventData);
 
     const { data: rsvpData } = await supabase
@@ -48,19 +69,22 @@ const ManageEvent = () => {
       .order("created_at", { ascending: false });
     setRsvps(rsvpData || []);
 
-    // Fetch profiles for attendees
-    const userIds = (rsvpData || []).map((r) => r.user_id);
-    if (userIds.length > 0) {
+    // Fetch profiles for attendees + hosts
+    const allUserIds = [
+      ...(rsvpData || []).map((r) => r.user_id),
+      ...(hostData || []).map((h) => h.user_id),
+    ];
+    const uniqueIds = [...new Set(allUserIds)];
+    if (uniqueIds.length > 0) {
       const { data: profileData } = await supabase
         .from("profiles")
         .select("*")
-        .in("user_id", userIds);
+        .in("user_id", uniqueIds);
       const profileMap = {};
       (profileData || []).forEach((p) => { profileMap[p.user_id] = p; });
       setProfiles(profileMap);
     }
 
-    // Fetch questions and answers for restricted events
     if (eventData.event_type === "restricted") {
       const { data: qData } = await supabase
         .from("event_questions")
@@ -91,6 +115,17 @@ const ManageEvent = () => {
     await supabase.from("rsvps").update({ status }).eq("id", rsvpId);
     setRsvps((prev) => prev.map((r) => r.id === rsvpId ? { ...r, status } : r));
     toast.success(`RSVP ${status}`);
+
+    // If approving, trigger QR code generation
+    if (status === "confirmed") {
+      try {
+        await supabase.functions.invoke("send-qr-email", {
+          body: { rsvp_id: rsvpId },
+        });
+      } catch (e) {
+        console.error("QR email error:", e);
+      }
+    }
   };
 
   const checkInGuest = async (rsvpId) => {
@@ -100,8 +135,8 @@ const ManageEvent = () => {
   };
 
   const handleQrScan = (data) => {
-    // QR data should be rsvpId
-    const foundRsvp = rsvps.find((r) => r.id === data || r.user_id === data);
+    // QR data is the qr_token UUID
+    const foundRsvp = rsvps.find((r) => r.qr_token === data || r.id === data || r.user_id === data);
     if (foundRsvp) {
       if (foundRsvp.checked_in) {
         toast.info("Guest already checked in");
@@ -129,6 +164,7 @@ const ManageEvent = () => {
     );
   }
 
+  const isOwner = event?.user_id === user?.id;
   const pendingRsvps = rsvps.filter((r) => r.status === "pending");
   const confirmedRsvps = rsvps.filter((r) => r.status === "confirmed");
   const deniedRsvps = rsvps.filter((r) => r.status === "denied");
@@ -160,6 +196,16 @@ const ManageEvent = () => {
           </div>
           <QrScanner onScan={handleQrScan} />
         </div>
+      )}
+
+      {/* Host Management (only for event owner) */}
+      {isOwner && (
+        <HostManager
+          eventId={id}
+          hosts={hosts}
+          profiles={profiles}
+          onUpdate={fetchData}
+        />
       )}
 
       {/* Pending (for restricted events) */}
@@ -235,35 +281,5 @@ const ManageEvent = () => {
     </motion.div>
   );
 };
-
-const RsvpCard = ({ rsvp, profile, questions, rsvpAnswers, onApprove, onDeny }) => (
-  <div className="bg-card border border-border rounded-xl p-4 space-y-3">
-    <div className="flex items-center justify-between">
-      <div>
-        <p className="font-medium text-foreground text-sm">{profile?.name || "Unknown"}</p>
-        <p className="text-xs text-muted-foreground">{profile?.email}</p>
-      </div>
-      <div className="flex gap-2">
-        <Button size="sm" onClick={onApprove} className="gap-1">
-          <Check className="h-3 w-3" /> Approve
-        </Button>
-        <Button size="sm" variant="outline" onClick={onDeny} className="gap-1">
-          <X className="h-3 w-3" /> Deny
-        </Button>
-      </div>
-    </div>
-    {/* Answers */}
-    {questions?.length > 0 && rsvpAnswers && (
-      <div className="space-y-2 pt-2 border-t border-border">
-        {questions.map((q) => (
-          <div key={q.id} className="space-y-0.5">
-            <p className="text-xs font-medium text-muted-foreground">{q.question}</p>
-            <p className="text-sm text-foreground">{rsvpAnswers[q.id] || "No answer"}</p>
-          </div>
-        ))}
-      </div>
-    )}
-  </div>
-);
 
 export default ManageEvent;

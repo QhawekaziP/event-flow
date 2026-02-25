@@ -20,7 +20,7 @@ const AppLayout = ({ children }) => {
       <header className="hidden md:flex items-center justify-between border-b border-border px-6 py-3 bg-card sticky top-0 z-50">
         <NavLink to="/" className="flex items-center gap-2">
           <Zap className="h-6 w-6 text-primary" />
-          <span className="text-lg font-bold text-foreground">EventLink</span>
+          <span className="text-lg font-bold text-foreground">EventFlow</span>
         </NavLink>
         <nav className="flex items-center gap-1">
           {navItems.map(({ to, label }) => (
