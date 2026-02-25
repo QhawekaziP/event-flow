@@ -69,7 +69,7 @@ const Signup = () => {
         <div className="text-center space-y-2">
           <div className="inline-flex items-center gap-2 text-primary">
             <Zap className="h-8 w-8" />
-            <span className="text-2xl font-bold tracking-tight text-foreground">EventLink</span>
+            <span className="text-2xl font-bold tracking-tight text-foreground">EventFlow</span>
           </div>
           <p className="text-muted-foreground">
             {step === 1 ? "Create your account" : "Tell us about yourself"}

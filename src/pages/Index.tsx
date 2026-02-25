@@ -42,7 +42,7 @@ const Index = () => {
       <div className="flex items-center justify-between md:hidden">
         <div className="flex items-center gap-2">
           <Zap className="h-6 w-6 text-primary" />
-          <h1 className="text-xl font-bold text-foreground">EventLink</h1>
+          <h1 className="text-xl font-bold text-foreground">EventFlow</h1>
         </div>
         <Link to="/create-event">
           <Button size="sm" className="rounded-full gap-1">

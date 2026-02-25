@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/contexts/AuthContext";
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Plus, Trash2, Upload, X } from "lucide-react";
 
 const CATEGORIES = ["Tech", "Books", "Sports", "Social"];
 
@@ -21,11 +21,30 @@ const CreateEvent = () => {
   const [description, setDescription] = useState("");
   const [date, setDate] = useState("");
   const [location, setLocation] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [category, setCategory] = useState("Social");
   const [isRestricted, setIsRestricted] = useState(false);
   const [questions, setQuestions] = useState([]);
   const [loading, setLoading] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const handleImageSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be under 5MB");
+      return;
+    }
+    setImageFile(file);
+    setImagePreview(URL.createObjectURL(file));
+  };
+
+  const removeImage = () => {
+    setImageFile(null);
+    setImagePreview(null);
+    if (fileInputRef.current) fileInputRef.current.value = "";
+  };
 
   const addQuestion = () => {
     setQuestions([...questions, ""]);
@@ -45,6 +64,28 @@ const CreateEvent = () => {
     e.preventDefault();
     if (!user) { navigate("/login"); return; }
     setLoading(true);
+
+    let imageUrl: string | null = null;
+
+    // Upload image if selected
+    if (imageFile) {
+      const fileExt = imageFile.name.split(".").pop();
+      const filePath = `${user.id}/${crypto.randomUUID()}.${fileExt}`;
+      const { error: uploadError } = await supabase.storage
+        .from("event-images")
+        .upload(filePath, imageFile);
+
+      if (uploadError) {
+        toast.error("Failed to upload image");
+        setLoading(false);
+        return;
+      }
+
+      const { data: urlData } = supabase.storage
+        .from("event-images")
+        .getPublicUrl(filePath);
+      imageUrl = urlData.publicUrl;
+    }
 
     const { data: eventData, error } = await supabase
       .from("events")
@@ -122,8 +163,35 @@ const CreateEvent = () => {
         </div>
 
         <div className="space-y-2">
-          <Label htmlFor="image">Image URL</Label>
-          <Input id="image" value={imageUrl} onChange={(e) => setImageUrl(e.target.value)} placeholder="https://..." />
+          <Label>Event Image</Label>
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/*"
+            onChange={handleImageSelect}
+            className="hidden"
+          />
+          {imagePreview ? (
+            <div className="relative rounded-xl overflow-hidden">
+              <img src={imagePreview} alt="Preview" className="w-full h-48 object-cover" />
+              <button
+                type="button"
+                onClick={removeImage}
+                className="absolute top-2 right-2 bg-background/80 backdrop-blur-sm rounded-full p-1.5 hover:bg-background"
+              >
+                <X className="h-4 w-4 text-foreground" />
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              className="w-full h-32 border-2 border-dashed border-muted-foreground/30 rounded-xl flex flex-col items-center justify-center gap-2 hover:border-primary/50 transition-colors"
+            >
+              <Upload className="h-6 w-6 text-muted-foreground" />
+              <span className="text-sm text-muted-foreground">Click to upload image</span>
+            </button>
+          )}
         </div>
 
         <div className="space-y-2">
