@@ -24,6 +24,7 @@ const ManageEvent = () => {
   const [loading, setLoading] = useState(true);
   const [showScanner, setShowScanner] = useState(false);
   const [isHostOrOwner, setIsHostOrOwner] = useState(false);
+  const [scanResult, setScanResult] = useState<{ name: string; email: string; location?: string; success: boolean; message: string } | null>(null);
 
   useEffect(() => {
     fetchData();
@@ -134,19 +135,21 @@ const ManageEvent = () => {
     toast.success("Guest checked in! ✅");
   };
 
-  const handleQrScan = (data) => {
-    // QR data is the qr_token UUID
+  const handleQrScan = async (data) => {
     const foundRsvp = rsvps.find((r) => r.qr_token === data || r.id === data || r.user_id === data);
+    const profile = foundRsvp ? profiles[foundRsvp.user_id] : null;
+
     if (foundRsvp) {
       if (foundRsvp.checked_in) {
-        toast.info("Guest already checked in");
+        setScanResult({ name: profile?.name || "Unknown", email: profile?.email || "", location: profile?.location, success: false, message: "Already checked in" });
       } else if (foundRsvp.status === "confirmed") {
-        checkInGuest(foundRsvp.id);
+        await checkInGuest(foundRsvp.id);
+        setScanResult({ name: profile?.name || "Unknown", email: profile?.email || "", location: profile?.location, success: true, message: "Scanned Successfully ✅" });
       } else {
-        toast.error("Guest is not confirmed");
+        setScanResult({ name: profile?.name || "Unknown", email: profile?.email || "", location: profile?.location, success: false, message: "Guest is not confirmed" });
       }
     } else {
-      toast.error("RSVP not found for this event");
+      setScanResult({ name: "Unknown", email: "", success: false, message: "RSVP not found for this event" });
     }
     setShowScanner(false);
   };
@@ -198,6 +201,29 @@ const ManageEvent = () => {
         </div>
       )}
 
+      {/* Scan Result Overlay */}
+      {scanResult && (
+        <motion.div
+          initial={{ opacity: 0, scale: 0.95 }}
+          animate={{ opacity: 1, scale: 1 }}
+          className={`border rounded-xl p-5 space-y-2 text-center ${
+            scanResult.success
+              ? "bg-success/10 border-success"
+              : "bg-destructive/10 border-destructive"
+          }`}
+        >
+          <p className={`text-lg font-bold ${scanResult.success ? "text-success" : "text-destructive"}`}>
+            {scanResult.message}
+          </p>
+          <p className="font-medium text-foreground">{scanResult.name}</p>
+          {scanResult.email && <p className="text-sm text-muted-foreground">{scanResult.email}</p>}
+          {scanResult.location && <p className="text-sm text-muted-foreground">📍 {scanResult.location}</p>}
+          <Button variant="outline" size="sm" onClick={() => { setScanResult(null); setShowScanner(true); }} className="mt-3">
+            Scan Another
+          </Button>
+        </motion.div>
+      )}
+
       {/* Host Management (only for event owner) */}
       {isOwner && (
         <HostManager
@@ -246,6 +272,9 @@ const ManageEvent = () => {
                   {profiles[rsvp.user_id]?.name || "Unknown"}
                 </p>
                 <p className="text-xs text-muted-foreground">{profiles[rsvp.user_id]?.email}</p>
+                {profiles[rsvp.user_id]?.location && (
+                  <p className="text-xs text-muted-foreground">📍 {profiles[rsvp.user_id].location}</p>
+                )}
               </div>
               <div className="flex items-center gap-2">
                 {rsvp.checked_in ? (
