@@ -31,8 +31,13 @@ const Profile = () => {
     setSaving(true);
     const { error } = await supabase
       .from("profiles")
-      .update({ name, location, interests })
-      .eq("user_id", user.id);
+      .upsert({
+        user_id: user.id,
+        email: user.email,
+        name,
+        location,
+        interests,
+      }, { onConflict: "user_id" });
     setSaving(false);
     if (error) {
       toast.error("Failed to update profile");
