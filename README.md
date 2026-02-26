@@ -6,3 +6,4 @@ This project is built with:
 - React
 - Supabase
 - Tailwind CSS
+- PostgreSQL
