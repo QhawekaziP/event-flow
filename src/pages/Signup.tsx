@@ -46,12 +46,17 @@ const Signup = () => {
       return;
     }
 
-    // Update profile with location and interests
+    // Upsert profile with location and interests
     if (data.user) {
       await supabase
         .from("profiles")
-        .update({ name, location, interests })
-        .eq("user_id", data.user.id);
+        .upsert({
+          user_id: data.user.id,
+          email,
+          name,
+          location,
+          interests,
+        }, { onConflict: "user_id" });
     }
 
     setLoading(false);
