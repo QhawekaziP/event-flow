@@ -6,9 +6,17 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
+import {
+  AlertDialog,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { LogOut, MapPin, Mail, Edit2 } from "lucide-react";
+import { LogOut, MapPin, Mail, Edit2, Trash2 } from "lucide-react";
 
 const INTEREST_OPTIONS = ["Tech", "Music", "Sports", "Art", "Books", "Food", "Travel", "Social", "Fitness", "Gaming"];
 
@@ -134,12 +142,56 @@ const Profile = () => {
         </div>
       )}
 
-      <div className="pt-4 border-t border-border">
+      <div className="pt-4 border-t border-border space-y-3">
         <Button variant="outline" onClick={handleSignOut} className="w-full gap-2 text-destructive hover:text-destructive">
           <LogOut className="h-4 w-4" /> Sign Out
         </Button>
+        <DeleteAccountSection />
       </div>
     </motion.div>
+  );
+};
+
+const DeleteAccountSection = () => {
+  const navigate = useNavigate();
+  const [open, setOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+
+  const handleDelete = async () => {
+    setDeleting(true);
+    const { error } = await supabase.functions.invoke("delete-account");
+    if (error) {
+      toast.error("Failed to delete account");
+      setDeleting(false);
+      return;
+    }
+    await supabase.auth.signOut();
+    toast.success("Account deleted");
+    navigate("/login");
+  };
+
+  return (
+    <>
+      <Button variant="ghost" size="sm" onClick={() => setOpen(true)} className="w-full gap-2 text-destructive hover:text-destructive">
+        <Trash2 className="h-4 w-4" /> Delete Account
+      </Button>
+      <AlertDialog open={open} onOpenChange={setOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Account</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure? This will permanently delete your account, all your events, RSVPs, and data. This action cannot be undone.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)} disabled={deleting}>Cancel</Button>
+            <Button variant="destructive" onClick={handleDelete} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete Account"}
+            </Button>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </>
   );
 };
 
