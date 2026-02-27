@@ -6,10 +6,12 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
 import { motion } from "framer-motion";
-import { ArrowLeft, Check, QrCode, UserCheck } from "lucide-react";
+import { ArrowLeft, Check, Edit, QrCode, Trash2, UserCheck } from "lucide-react";
 import QrScanner from "@/components/QrScanner";
 import RsvpCard from "@/components/ManageEvent/RsvpCard";
 import HostManager from "@/components/ManageEvent/HostManager";
+import EditEventDialog from "@/components/ManageEvent/EditEventDialog";
+import DeleteEventDialog from "@/components/ManageEvent/DeleteEventDialog";
 
 const ManageEvent = () => {
   const { id } = useParams();
@@ -25,6 +27,8 @@ const ManageEvent = () => {
   const [showScanner, setShowScanner] = useState(false);
   const [isHostOrOwner, setIsHostOrOwner] = useState(false);
   const [scanResult, setScanResult] = useState<{ name: string; email: string; location?: string; success: boolean; message: string } | null>(null);
+  const [showEditDialog, setShowEditDialog] = useState(false);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -186,10 +190,40 @@ const ManageEvent = () => {
           <h1 className="text-xl font-bold text-foreground">{event?.title}</h1>
           <p className="text-sm text-muted-foreground">{rsvps.length} RSVPs</p>
         </div>
-        <Button variant="outline" size="sm" onClick={() => setShowScanner(true)} className="gap-1">
-          <QrCode className="h-4 w-4" /> Scan
-        </Button>
+        <div className="flex items-center gap-2">
+          {isOwner && (
+            <>
+              <Button variant="outline" size="sm" onClick={() => setShowEditDialog(true)} className="gap-1">
+                <Edit className="h-4 w-4" /> Edit
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => setShowDeleteDialog(true)} className="gap-1 text-destructive hover:text-destructive">
+                <Trash2 className="h-4 w-4" />
+              </Button>
+            </>
+          )}
+          <Button variant="outline" size="sm" onClick={() => setShowScanner(true)} className="gap-1">
+            <QrCode className="h-4 w-4" /> Scan
+          </Button>
+        </div>
       </div>
+
+      {/* Edit & Delete Dialogs */}
+      {isOwner && event && (
+        <>
+          <EditEventDialog
+            event={event}
+            open={showEditDialog}
+            onOpenChange={setShowEditDialog}
+            onUpdated={fetchData}
+          />
+          <DeleteEventDialog
+            eventId={event.id}
+            eventTitle={event.title}
+            open={showDeleteDialog}
+            onOpenChange={setShowDeleteDialog}
+          />
+        </>
+      )}
 
       {showScanner && (
         <div className="bg-card border border-border rounded-xl p-4 space-y-3">
